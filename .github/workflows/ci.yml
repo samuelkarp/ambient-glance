@@ -1,0 +1,40 @@
+name: CI
+on:
+  merge_group:
+  pull_request:
+    branches: ['main']
+  push:
+    branches: ['main']
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v5
+      - name: "Setup Go"
+        uses: actions/setup-go@v5
+      - name: "Check"
+        run: make check
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v5
+      - name: "Setup Go"
+        uses: actions/setup-go@v5
+      - name: "Tests"
+        run: make test
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v5
+      - name: "Setup Go"
+        uses: actions/setup-go@v5
+      - name: "Build"
+        run: make
+
