@@ -15,3 +15,9 @@ The following apps are implemented today:
 > This is not an officially supported Google product. This project is not
 > eligible for the [Google Open Source Software Vulnerability Rewards
 > Program](https://bughunters.google.com/open-source-security).
+
+![TUI showing AAY282](docs/aay282-full-tui.png)
+
+![LD220-HP pole display showing SKW3853](docs/skw3853.jpg)
+
+
