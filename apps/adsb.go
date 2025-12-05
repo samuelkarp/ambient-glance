@@ -115,7 +115,6 @@ func (a *adsb) Stop(id string) error {
 }
 
 func (a *adsb) Run(ctx context.Context) error {
-	a.log.Println("starting adsb", a.closestURL())
 	for {
 		select {
 		case <-ctx.Done():

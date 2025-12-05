@@ -117,19 +117,7 @@ func main() {
 		schedCtx         context.Context
 		schedCancel      context.CancelFunc
 	)
-
-	sharkApp := apps.NewBabyShark(intents)
-
-	adsb := apps.NewADSB(config.ADSBTar1090Endpoint, config.ADSBLat, config.ADSBLon, config.ADSBRadius, l, intents)
-	var (
-		runningADSB = false
-		adsbCtx     context.Context
-		adsbCancel  context.CancelFunc
-	)
-
-	list := tview.NewList()
-	list.ShowSecondaryText(false)
-	list.AddItem("Scheduler", "", 's', func() {
+	toggleScheduler := func() {
 		if runningScheduler {
 			l.Println("Stop scheduler")
 			schedCancel()
@@ -144,18 +132,18 @@ func main() {
 				l.Println("scheduler err", err)
 			}
 		}()
-	})
-	list.AddItem("Manual cycle", "", 'c', func() {
-		l.Println("Enable next, current display:", displays[active].Name)
+	}
+	toggleScheduler()
 
-		displays[active].Display.Disable()
-		active = (active + 1) % len(displays)
-		displays[active].Display.Enable()
-		l.Println("Now active:", displays[active].Name)
-		cur.SetText("Active: " + displays[active].Name)
-	})
+	sharkApp := apps.NewBabyShark(intents)
 
-	list.AddItem("ADSB", "", 'a', func() {
+	adsb := apps.NewADSB(config.ADSBTar1090Endpoint, config.ADSBLat, config.ADSBLon, config.ADSBRadius, l, intents)
+	var (
+		runningADSB = false
+		adsbCtx     context.Context
+		adsbCancel  context.CancelFunc
+	)
+	toggleADSB := func() {
 		if runningADSB {
 			l.Println("Stop adsb")
 			adsbCancel()
@@ -170,7 +158,23 @@ func main() {
 				l.Println("adsb err", err)
 			}
 		}()
+	}
+	toggleADSB()
+
+	list := tview.NewList()
+	list.ShowSecondaryText(false)
+	list.AddItem("Scheduler", "", 's', toggleScheduler)
+	list.AddItem("Manual cycle", "", 'c', func() {
+		l.Println("Enable next, current display:", displays[active].Name)
+
+		displays[active].Display.Disable()
+		active = (active + 1) % len(displays)
+		displays[active].Display.Enable()
+		l.Println("Now active:", displays[active].Name)
+		cur.SetText("Active: " + displays[active].Name)
 	})
+
+	list.AddItem("ADSB", "", 'a', toggleADSB)
 
 	list.AddItem("Play", "", 'p', func() {
 		go func() {
