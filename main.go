@@ -110,8 +110,9 @@ func main() {
 	derekApp := apps.NewDerek()
 	playApp := apps.NewPlay()
 	fortuneApp := apps.NewFortune()
+	eightClapApp := apps.New8Clap()
 
-	sch, _, intents := scheduler.NewScheduler(schedulerDisp, l, clockApp, fortuneApp)
+	sch, _, intents := scheduler.NewScheduler(schedulerDisp, l, clockApp, fortuneApp, eightClapApp)
 	var (
 		runningScheduler = false
 		schedCtx         context.Context
@@ -136,6 +137,7 @@ func main() {
 	toggleScheduler()
 
 	sharkApp := apps.NewBabyShark(intents)
+	eightClapIntentApp := apps.New8ClapIntent(intents)
 
 	adsb := apps.NewADSB(config.ADSBTar1090Endpoint, config.ADSBLat, config.ADSBLon, config.ADSBRadius, l, intents)
 	var (
@@ -218,6 +220,15 @@ func main() {
 				return
 			}
 			l.Println("Shark activated")
+		}()
+	})
+	list.AddItem("Eight Clap", "", '8', func() {
+		go func() {
+			if err := eightClapIntentApp.SignalIntent(); err != nil {
+				l.Println("eightclap err", err)
+				return
+			}
+			l.Println("Eight Clap activated")
 		}()
 	})
 	list.AddItem("Box", "", 'b', func() {
