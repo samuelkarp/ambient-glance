@@ -115,11 +115,17 @@ func (a eightclapActivity) Run(_ context.Context, d display.Display) error {
 			return err
 		}
 		time.Sleep(250 * time.Millisecond)
-		if _, err := d.Write([]byte("clap ")); err != nil {
+		if err := d.MoveCursor(display.CursorBottomLeft); err != nil {
+			return err
+		}
+		if _, err := d.Write([]byte("     clap")); err != nil {
 			return err
 		}
 		time.Sleep(250 * time.Millisecond)
-		if _, err := d.Write([]byte("clap")); err != nil {
+		if err := d.MoveCursor(display.CursorBottomLeft); err != nil {
+			return err
+		}
+		if _, err := d.Write([]byte("          clap")); err != nil {
 			return err
 		}
 		time.Sleep(250 * time.Millisecond)
