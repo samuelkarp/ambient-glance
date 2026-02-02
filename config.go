@@ -22,10 +22,20 @@ import (
 )
 
 type Config struct {
-	ADSBTar1090Endpoint string `json:"adsb_tar1090_endpoint"`
-	ADSBLat             string `json:"adsb_lat"`
-	ADSBLon             string `json:"adsb_lon"`
-	ADSBRadius          string `json:"adsb_radius"`
+	ADSB ADSBConfig `json:"adsb"`
+	OBA  OBAConfig  `json:"oba"`
+}
+
+type ADSBConfig struct {
+	Tar1090Endpoint string `json:"tar1090_endpoint"`
+	Lat             string `json:"lat"`
+	Lon             string `json:"lon"`
+	Radius          string `json:"radius"`
+}
+
+type OBAConfig struct {
+	Stops      []string          `json:"stops"`
+	RouteAlias map[string]string `json:"route_alias"`
 }
 
 func LoadConfig(path string) (*Config, error) {

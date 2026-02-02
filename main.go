@@ -111,8 +111,9 @@ func main() {
 	playApp := apps.NewPlay()
 	fortuneApp := apps.NewFortune()
 	eightClapApp := apps.New8Clap()
+	obaApp := apps.NewOBA(config.OBA.Stops, config.OBA.RouteAlias, l)
 
-	sch, _, intents := scheduler.NewScheduler(schedulerDisp, l, clockApp, fortuneApp, eightClapApp)
+	sch, _, intents := scheduler.NewScheduler(schedulerDisp, l, clockApp, obaApp, fortuneApp, eightClapApp)
 	var (
 		runningScheduler = false
 		schedCtx         context.Context
@@ -138,8 +139,9 @@ func main() {
 
 	sharkApp := apps.NewBabyShark(intents)
 	eightClapIntentApp := apps.New8ClapIntent(intents)
+	obaIntentApp := obaApp.WithIntents(intents)
 
-	adsb := apps.NewADSB(config.ADSBTar1090Endpoint, config.ADSBLat, config.ADSBLon, config.ADSBRadius, l, intents)
+	adsb := apps.NewADSB(config.ADSB.Tar1090Endpoint, config.ADSB.Lat, config.ADSB.Lon, config.ADSB.Radius, l, intents)
 	var (
 		runningADSB = false
 		adsbCtx     context.Context
@@ -163,6 +165,29 @@ func main() {
 	}
 	toggleADSB()
 
+	var (
+		runningOBA = false
+		obaCtx     context.Context
+		obaCancel  context.CancelFunc
+	)
+	toggleOBA := func() {
+		if runningOBA {
+			l.Println("Stop oba")
+			obaCancel()
+			runningOBA = false
+			return
+		}
+		l.Println("Run oba")
+		runningOBA = true
+		obaCtx, obaCancel = context.WithCancel(context.Background())
+		go func() {
+			if err := obaApp.Run(obaCtx); err != nil {
+				l.Println("oba err", err)
+			}
+		}()
+	}
+	toggleOBA()
+
 	list := tview.NewList()
 	list.ShowSecondaryText(false)
 	list.AddItem("Scheduler", "", 's', toggleScheduler)
@@ -177,6 +202,16 @@ func main() {
 	})
 
 	list.AddItem("ADSB", "", 'a', toggleADSB)
+	list.AddItem("One Bus Away", "", 'o', toggleOBA)
+	list.AddItem("One Bus Away Now", "", 'g', func() {
+		go func() {
+			if err := obaIntentApp.SignalIntent(); err != nil {
+				l.Println("oba err", err)
+				return
+			}
+			l.Println("OBA activated")
+		}()
+	})
 
 	list.AddItem("Play", "", 'p', func() {
 		go func() {

@@ -9,8 +9,10 @@ supporting both an automatic carousel between apps and preemption.
 The following apps are implemented today:
 * Clock
 * Fortune - based on the fortune(6) command
+* 8 clap - The UCLA 8 clap
 * ADS-B - to display the closest detected aircraft within a small radius of a
   receiver
+* [OneBusAway](https://onebusaway.org/) - Transit arrival data
 
 > This is not an officially supported Google product. This project is not
 > eligible for the [Google Open Source Software Vulnerability Rewards
@@ -21,3 +23,21 @@ The following apps are implemented today:
 ![LD220-HP pole display showing SKW3853](docs/skw3853.jpg)
 
 
+## Sample config
+
+```json
+{
+  "adsb": {
+    "tar1090_endpoint":"http://localhost:30152",
+    "lat":"",
+    "lon":"",
+    "radius":"3"
+  },
+  "oba": {
+    "stops": ["stop code"],
+    "route_alias": {
+      "route code": "NAME"
+    }
+  }
+}
+```

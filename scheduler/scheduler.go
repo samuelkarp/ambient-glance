@@ -129,7 +129,7 @@ func (s scheduler) Run(ctx context.Context) error {
 			cancel()
 		}
 	}
-	// return nil
+	return nil
 }
 
 func (s scheduler) runActivity(ctx context.Context, name string, id string, a Activity) error {
