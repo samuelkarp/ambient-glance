@@ -246,11 +246,11 @@ func formatArrival(arrival obaArrival, off int) string {
 	if in.Minutes() < 0 {
 		inFmt = "NOW"
 	}
-	shortName := fmtField(arrival.shortName, 5, 0, leftPad)
-	headSign := fmtField(arrival.headsign, 10, off, rightPad)
+	shortName := fmtField(arrival.shortName, 4, 0, leftPad)
+	headSign := fmtField(arrival.headsign, 11, off, rightPad)
 	inFmt = fmtField(inFmt, 3, 0, rightPad)
 
-	// 12345 7890123456 890
+	// 1234 67890123456 890
 	return fmt.Sprintf("%s %s %s", shortName, headSign, inFmt)
 }
 
