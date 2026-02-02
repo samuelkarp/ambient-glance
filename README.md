@@ -34,6 +34,7 @@ The following apps are implemented today:
     "radius":"3"
   },
   "oba": {
+    "key": "api key goes here",
     "stops": ["stop code"],
     "route_alias": {
       "route code": "NAME"

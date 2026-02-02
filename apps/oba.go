@@ -36,6 +36,7 @@ type oba struct {
 	log     *log.Logger
 	loc     *time.Location
 	intents chan<- scheduler.Intent
+	key     string
 	stops   []string
 	alias   map[string]string
 	cache   obaCache
@@ -53,7 +54,7 @@ type obaArrival struct {
 	agency    string
 }
 
-func NewOBA(stops []string, alias map[string]string, log *log.Logger) *oba {
+func NewOBA(key string, stops []string, alias map[string]string, log *log.Logger) *oba {
 	loc, err := time.LoadLocation("America/Los_Angeles")
 	if err != nil {
 		log.Fatal(err)
@@ -61,6 +62,7 @@ func NewOBA(stops []string, alias map[string]string, log *log.Logger) *oba {
 	return &oba{
 		log:   log,
 		loc:   loc,
+		key:   key,
 		stops: stops,
 		alias: alias,
 	}
@@ -81,7 +83,7 @@ func (o *oba) Stop(id string) error {
 
 func (o *oba) Run(ctx context.Context) error {
 	client := onebusaway.NewClient(
-		option.WithAPIKey("TEST"),
+		option.WithAPIKey(o.key),
 	)
 	first := true
 	for {
@@ -114,9 +116,9 @@ func (o *oba) Run(ctx context.Context) error {
 				routes[r.ID] = r.AgencyID
 			}
 			for _, a := range res.Data.Entry.ArrivalsAndDepartures {
-				dep := time.UnixMilli(a.PredictedDepartureTime).In(o.loc)
+				arr := time.UnixMilli(a.PredictedArrivalTime).In(o.loc)
 				now := time.Now()
-				if now.After(dep) || now.Add(20*time.Minute).Before(dep) {
+				if now.After(arr) || now.Add(20*time.Minute).Before(arr) {
 					continue
 				}
 				name := a.RouteShortName
@@ -126,10 +128,10 @@ func (o *oba) Run(ctx context.Context) error {
 				arrivals = append(arrivals, obaArrival{
 					shortName: name,
 					headsign:  a.TripHeadsign,
-					time:      dep,
+					time:      arr,
 					agency:    agencies[routes[a.RouteID]],
 				})
-				o.log.Printf("oba: added arrival for %q at %q dep %s\n", name, s, dep.Format(time.Kitchen))
+				o.log.Printf("oba: added arrival for %q at %q arr %s\n", name, s, arr.Format(time.Kitchen))
 			}
 		}
 		sort.Slice(arrivals, func(i, j int) bool {
@@ -174,17 +176,11 @@ func (o *obaActivity) Run(ctx context.Context, d display.Display) error {
 	if err := d.Reset(); err != nil {
 		return err
 	}
-	first := true
 	for i := 0; i < 3; i++ {
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
-			if first {
-				first = false
-				break
-			}
-			time.Sleep(2 * time.Second)
 		}
 		var arrivals []obaArrival
 		o.cache.l.RLock()
@@ -194,13 +190,36 @@ func (o *obaActivity) Run(ctx context.Context, d display.Display) error {
 			return nil
 		}
 		for j := 0; j < len(arrivals) && j < 10; j += 2 {
-			if j > 0 {
-				time.Sleep(2 * time.Second)
+			for k := 0; k < 30; k++ {
+				var one, two string
+				one = formatArrival(arrivals[j], k)
+				if j+1 < len(arrivals) {
+					two = formatArrival(arrivals[j+1], k)
+				} else {
+					two = strings.Repeat(" ", 20)
+				}
+				if err := d.MoveCursor(display.CursorTopLeft); err != nil {
+					return err
+				}
+				if _, err := d.Write([]byte(one)); err != nil {
+					return err
+				}
+				if err := d.MoveCursor(display.CursorBottomLeft); err != nil {
+					return err
+				}
+				if _, err := d.Write([]byte(two)); err != nil {
+					return err
+				}
+				if k == 0 {
+					time.Sleep(2 * time.Second)
+				} else {
+					time.Sleep(200 * time.Millisecond)
+				}
 			}
 			var one, two string
-			one = formatArrival(arrivals[j])
+			one = formatArrival(arrivals[j], 0)
 			if j+1 < len(arrivals) {
-				two = formatArrival(arrivals[j+1])
+				two = formatArrival(arrivals[j+1], 0)
 			} else {
 				two = strings.Repeat(" ", 20)
 			}
@@ -221,15 +240,15 @@ func (o *obaActivity) Run(ctx context.Context, d display.Display) error {
 	return nil
 }
 
-func formatArrival(arrival obaArrival) string {
+func formatArrival(arrival obaArrival, off int) string {
 	in := arrival.time.Sub(time.Now())
 	inFmt := fmt.Sprintf("%dm", int(in.Round(time.Minute).Minutes()))
 	if in.Minutes() < 0 {
 		inFmt = "NOW"
 	}
-	shortName := fmtField(arrival.shortName, 5, leftPad)
-	headSign := fmtField(arrival.headsign, 10, rightPad)
-	inFmt = fmtField(inFmt, 3, rightPad)
+	shortName := fmtField(arrival.shortName, 5, 0, leftPad)
+	headSign := fmtField(arrival.headsign, 10, off, rightPad)
+	inFmt = fmtField(inFmt, 3, 0, rightPad)
 
 	// 12345 7890123456 890
 	return fmt.Sprintf("%s %s %s", shortName, headSign, inFmt)
@@ -242,11 +261,12 @@ const (
 	rightPad
 )
 
-func fmtField(s string, size int, pad padDir) string {
+func fmtField(s string, size int, off int, pad padDir) string {
 	switch {
 	case len(s) == size:
 		return s
 	case len(s) > size:
+		s = marquee(s, off)
 		return s[:size]
 	case pad == leftPad:
 		return strings.Repeat(" ", size-len(s)) + s
@@ -254,4 +274,10 @@ func fmtField(s string, size int, pad padDir) string {
 		return s + strings.Repeat(" ", size-len(s))
 	}
 	return ""
+}
+
+func marquee(s string, off int) string {
+	s = s + "    "
+	off = off % len(s)
+	return s[off:] + s[:off]
 }

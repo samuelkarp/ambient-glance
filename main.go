@@ -111,7 +111,7 @@ func main() {
 	playApp := apps.NewPlay()
 	fortuneApp := apps.NewFortune()
 	eightClapApp := apps.New8Clap()
-	obaApp := apps.NewOBA(config.OBA.Stops, config.OBA.RouteAlias, l)
+	obaApp := apps.NewOBA(config.OBA.Key, config.OBA.Stops, config.OBA.RouteAlias, l)
 
 	sch, _, intents := scheduler.NewScheduler(schedulerDisp, l, clockApp, obaApp, fortuneApp, eightClapApp)
 	var (

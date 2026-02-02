@@ -34,6 +34,7 @@ type ADSBConfig struct {
 }
 
 type OBAConfig struct {
+	Key        string            `json:"key"`
 	Stops      []string          `json:"stops"`
 	RouteAlias map[string]string `json:"route_alias"`
 }
