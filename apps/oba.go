@@ -106,6 +106,10 @@ func (o *oba) Run(ctx context.Context) error {
 				o.log.Printf("error listing arrivals for %q: %v", s, err)
 				continue
 			}
+			if res == nil {
+				o.log.Printf("no arrivals for %q", s)
+				continue
+			}
 			o.log.Printf("oba: got %d arrivals for stop %q\n", len(res.Data.Entry.ArrivalsAndDepartures), s)
 			agencies := make(map[string]string)
 			for _, a := range res.Data.References.Agencies {
