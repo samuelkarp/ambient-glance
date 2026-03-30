@@ -252,7 +252,7 @@ func formatArrival(arrival obaArrival, off int) string {
 	}
 	shortName := fmtField(arrival.shortName, 4, 0, leftPad)
 	headSign := fmtField(arrival.headsign, 11, off, rightPad)
-	inFmt = fmtField(inFmt, 3, 0, rightPad)
+	inFmt = fmtField(inFmt, 3, 0, leftPad)
 
 	// 1234 67890123456 890
 	return fmt.Sprintf("%s %s %s", shortName, headSign, inFmt)
