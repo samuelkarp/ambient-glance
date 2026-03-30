@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"os/exec"
-	"strings"
 	"time"
 
 	"go.sbk.wtf/ambient-glance/display"
@@ -55,6 +54,9 @@ func (f fortune) Stop(id string) error {
 type fortuneActivity struct{}
 
 func (f *fortuneActivity) Run(ctx context.Context, d display.Display) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -98,51 +100,6 @@ func (f *fortuneActivity) Run(ctx context.Context, d display.Display) error {
 		}
 		time.Sleep(2 * time.Second)
 	}
-}
-
-func wordwrap(in string) []string {
-	var out []string
-	splits := strings.Split(in, "\n")
-	for _, s := range splits {
-		out = append(out, wrapOne(s)...)
-	}
-	return out
-}
-
-func wrapOne(in string) []string {
-	if len(in) == 0 {
-		return nil
-	}
-	words := strings.Fields(in)
-	line := ""
-	var out []string
-	const maxLen = 20
-	for _, word := range words {
-		if len(line) == maxLen {
-			out = append(out, line)
-			line = ""
-		}
-		space := " "
-		if len(line) == 0 {
-			space = ""
-		}
-		if len(line)+len(space)+len(word) > maxLen {
-			out = append(out, line)
-			line = ""
-			space = ""
-		}
-		if len(word) > maxLen {
-			w := word
-			for len(w) > maxLen {
-				out = append(out, w[:maxLen])
-				w = w[maxLen:]
-			}
-			word = w
-		}
-		line += space + word
-	}
-	out = append(out, line)
-	return out
 }
 
 // Available checks that the external fortune command is present in the PATH
