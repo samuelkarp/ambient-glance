@@ -112,8 +112,14 @@ func main() {
 	fortuneApp := apps.NewFortune()
 	eightClapApp := apps.New8Clap()
 	obaApp := apps.NewOBA(config.OBA.Key, config.OBA.Stops, config.OBA.RouteAlias, l)
+	rssApp := apps.NewRSS(config.RSS, l)
 
-	sch, _, intents := scheduler.NewScheduler(schedulerDisp, l, clockApp, obaApp, fortuneApp, eightClapApp)
+	schApps := []scheduler.App{clockApp, obaApp, fortuneApp, eightClapApp}
+	if len(config.RSS) > 0 {
+		schApps = append(schApps, rssApp)
+	}
+
+	sch, _, intents := scheduler.NewScheduler(schedulerDisp, l, schApps...)
 	var (
 		runningScheduler = false
 		schedCtx         context.Context
@@ -140,6 +146,7 @@ func main() {
 	sharkApp := apps.NewBabyShark(intents)
 	eightClapIntentApp := apps.New8ClapIntent(intents)
 	obaIntentApp := obaApp.WithIntents(intents)
+	rssIntentApp := rssApp.WithIntents(intents)
 
 	adsb := apps.NewADSB(config.ADSB.Tar1090Endpoint, config.ADSB.Lat, config.ADSB.Lon, config.ADSB.Radius, l, intents)
 	var (
@@ -188,6 +195,33 @@ func main() {
 	}
 	toggleOBA()
 
+	var (
+		runningRSS = false
+		rssCtx     context.Context
+		rssCancel  context.CancelFunc
+	)
+	toggleRSS := func() {
+		if runningRSS {
+			l.Println("Stop rss")
+			rssCancel()
+			runningRSS = false
+			return
+		}
+		if len(config.RSS) == 0 {
+			l.Println("RSS missing config, disabling")
+			return
+		}
+		l.Println("Run rss")
+		runningRSS = true
+		rssCtx, rssCancel = context.WithCancel(context.Background())
+		go func() {
+			if err := rssApp.Run(rssCtx); err != nil {
+				l.Println("rss err", err)
+			}
+		}()
+	}
+	toggleRSS()
+
 	list := tview.NewList()
 	list.ShowSecondaryText(false)
 	list.AddItem("Scheduler", "", 's', toggleScheduler)
@@ -210,6 +244,17 @@ func main() {
 				return
 			}
 			l.Println("OBA activated")
+		}()
+	})
+
+	list.AddItem("RSS", "", 'v', toggleRSS)
+	list.AddItem("RSS Now", "", 'w', func() {
+		go func() {
+			if err := rssIntentApp.SignalIntent(); err != nil {
+				l.Println("rss err", err)
+				return
+			}
+			l.Println("RSS activated")
 		}()
 	})
 

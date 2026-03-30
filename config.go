@@ -22,8 +22,9 @@ import (
 )
 
 type Config struct {
-	ADSB ADSBConfig `json:"adsb"`
-	OBA  OBAConfig  `json:"oba"`
+	ADSB ADSBConfig        `json:"adsb"`
+	OBA  OBAConfig         `json:"oba"`
+	RSS  map[string]string `json:"rss"`
 }
 
 type ADSBConfig struct {

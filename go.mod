@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/SlyMarbo/rss/v2 v2.0.1 // indirect
 	github.com/containerd/ltag v0.3.0 // indirect
 	github.com/creack/goselect v0.1.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -25,6 +26,7 @@ require (
 	github.com/tidwall/match v1.2.0 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
+	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sys v0.38.0 // indirect
 	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
