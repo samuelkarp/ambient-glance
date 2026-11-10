@@ -30,6 +30,9 @@ import (
 	"go.sbk.wtf/ambient-glance/scheduler"
 )
 
+// logMaxLines is the number of wrapped lines the log view retains.
+const logMaxLines = 1000
+
 func main() {
 	config, err := LoadConfig("config.json")
 	if err != nil {
@@ -43,6 +46,7 @@ func main() {
 	logView.SetBorder(false)
 	logView.SetWordWrap(true)
 	logView.ScrollToEnd()
+	logView.SetMaxLines(logMaxLines)
 	logView.SetChangedFunc(func() {
 		app.Draw()
 	})
