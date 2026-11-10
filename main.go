@@ -19,6 +19,8 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"path/filepath"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -152,7 +154,15 @@ func main() {
 	obaIntentApp := obaApp.WithIntents(intents)
 	rssIntentApp := rssApp.WithIntents(intents)
 
-	adsb := apps.NewADSB(config.ADSB.Tar1090Endpoint, config.ADSB.Lat, config.ADSB.Lon, config.ADSB.Radius, l, intents)
+	routeDataDir := config.ADSB.RouteDataDir
+	if routeDataDir == "" {
+		cache, err := os.UserCacheDir()
+		if err != nil {
+			log.Fatal(err)
+		}
+		routeDataDir = filepath.Join(cache, "ambient-glance")
+	}
+	adsb := apps.NewADSB(config.ADSB.Tar1090Endpoint, config.ADSB.Lat, config.ADSB.Lon, config.ADSB.Radius, routeDataDir, l, intents)
 	var (
 		runningADSB = false
 		adsbCtx     context.Context

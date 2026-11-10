@@ -17,13 +17,11 @@
 package apps
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -52,30 +50,6 @@ type Aircraft struct {
 	GroundSpeed  float64 `json:"gs"`
 }
 
-// https://api.adsb.lol/docs#/v0/api_routeset_api_0_routeset_post
-
-type RoutesetRequest struct {
-	Planes []Plane `json:"planes"`
-}
-
-type Plane struct {
-	Callsign string  `json:"callsign"`
-	Lat      float64 `json:"lat"`
-	Lng      float64 `json:"lng"`
-}
-
-type RoutesetResponse struct {
-	Callsign         string    `json:"callsign"`
-	AirportCodesIATA string    `json:"_airport_codes_iata"`
-	Airports         []Airport `json:"_airports"`
-}
-
-type Airport struct {
-	IATA     string `json:"iata"`
-	ICAO     string `json:"icao"`
-	Location string `json:"location"`
-}
-
 type adsb struct {
 	tar1090Endpoint string
 	lat             string
@@ -84,6 +58,7 @@ type adsb struct {
 	log             *log.Logger
 	pendingIntent   atomic.Bool
 	intents         chan<- scheduler.Intent
+	routes          *routeData
 }
 
 type BackgroundApp interface {
@@ -91,7 +66,8 @@ type BackgroundApp interface {
 	Run(ctx context.Context) error
 }
 
-func NewADSB(tar1090Endpoint, lat, lon, dist string, log *log.Logger, intents chan<- scheduler.Intent) BackgroundApp {
+// NewADSB returns the ADS-B app. Route data files are kept in routeDataDir.
+func NewADSB(tar1090Endpoint, lat, lon, dist, routeDataDir string, log *log.Logger, intents chan<- scheduler.Intent) BackgroundApp {
 	return &adsb{
 		tar1090Endpoint: tar1090Endpoint,
 		lat:             lat,
@@ -99,6 +75,7 @@ func NewADSB(tar1090Endpoint, lat, lon, dist string, log *log.Logger, intents ch
 		dist:            dist,
 		log:             log,
 		intents:         intents,
+		routes:          newRouteData(routeDataDir, log),
 	}
 }
 
@@ -115,6 +92,7 @@ func (a *adsb) Stop(id string) error {
 }
 
 func (a *adsb) Run(ctx context.Context) error {
+	go a.routes.Run(ctx)
 	for {
 		select {
 		case <-ctx.Done():
@@ -152,6 +130,7 @@ func (a *adsb) sendIntentAndWait() error {
 		Activity: &adsbActivity{
 			done:    done,
 			closest: a.getClosest,
+			route:   a.routes.Lookup,
 			log:     a.log,
 		},
 	}
@@ -184,6 +163,7 @@ func (a *adsb) getClosest() (*Closest, error) {
 type adsbActivity struct {
 	done    chan struct{}
 	closest func() (*Closest, error)
+	route   func(callsign string) (*Route, error)
 	log     *log.Logger
 }
 
@@ -202,7 +182,7 @@ func (a *adsbActivity) Run(ctx context.Context, d display.Display) error {
 	}
 	var (
 		lastCallsign string
-		lastRoute    *RoutesetResponse
+		lastRoute    *Route
 	)
 	for {
 		select {
@@ -220,12 +200,11 @@ func (a *adsbActivity) Run(ctx context.Context, d display.Display) error {
 		aircraft := &c.Aircraft[0]
 		if aircraft.Flight != lastCallsign {
 			lastCallsign = aircraft.Flight
-			if route, err := a.getRoute(aircraft); err != nil {
-				lastRoute = nil
+			lastRoute, err = a.route(aircraft.Flight)
+			if err != nil {
 				a.log.Println("adsb: err getting route:", err)
-			} else {
-				a.log.Printf("adsb: found route: %v", route)
-				lastRoute = route
+			} else if lastRoute != nil {
+				a.log.Printf("adsb: found route: %s", lastRoute.Codes())
 			}
 
 			if err := d.Reset(); err != nil {
@@ -241,7 +220,7 @@ func (a *adsbActivity) Run(ctx context.Context, d display.Display) error {
 	}
 }
 
-func (a *adsbActivity) display(aircraft *Aircraft, route *RoutesetResponse, d display.Display) error {
+func (a *adsbActivity) display(aircraft *Aircraft, route *Route, d display.Display) error {
 	callsign := fmt.Sprintf("%-8s", aircraft.Flight)[:8]
 	typ := fmt.Sprintf("%4s", aircraft.Type)[:4]
 	line1 := fmt.Sprintf("%s %s %4.0fkt", callsign, typ, aircraft.GroundSpeed)
@@ -257,11 +236,11 @@ func (a *adsbActivity) display(aircraft *Aircraft, route *RoutesetResponse, d di
 				}
 			}
 			if len(locs) > 20 {
-				locs = route.AirportCodesIATA
+				locs = route.Codes()
 			}
 			line2 = fmt.Sprintf("%-20s", locs)[:20]
 		} else {
-			line2 = fmt.Sprintf("%-20s", route.AirportCodesIATA)
+			line2 = fmt.Sprintf("%-20s", route.Codes())
 		}
 	} else {
 		line2 = fmt.Sprintf("%-20s", aircraft.Owner)[:20]
@@ -287,32 +266,4 @@ func (a *adsbActivity) displaySpeed(aircraft *Aircraft, d display.Display) error
 		return err
 	}
 	return nil
-}
-
-func (a *adsbActivity) getRoute(aircraft *Aircraft) (*RoutesetResponse, error) {
-	req := &RoutesetRequest{
-		Planes: []Plane{{
-			Callsign: strings.TrimSpace(aircraft.Flight),
-			Lat:      aircraft.Lat,
-			Lng:      aircraft.Lon,
-		}},
-	}
-	b, err := json.Marshal(req)
-	if err != nil {
-		return nil, err
-	}
-	r, err := http.Post("https://api.adsb.lol/api/0/routeset", "application/json", bytes.NewReader(b))
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = r.Body.Close() }()
-	var res []RoutesetResponse
-	dec := json.NewDecoder(r.Body)
-	if err := dec.Decode(&res); err != nil {
-		return nil, err
-	}
-	if len(res) != 1 {
-		return nil, fmt.Errorf("adsb: got %d routesets", len(res))
-	}
-	return &res[0], nil
 }

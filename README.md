@@ -42,3 +42,10 @@ The following apps are implemented today:
   }
 }
 ```
+
+The ADS-B app resolves routes from the
+[VRS standing data](https://github.com/vradarserver/standing-data) files
+mirrored at `https://vrs-standing-data.adsb.lol/`. It downloads them on start
+and checks for a newer copy every 6 hours. The files are kept in an
+`ambient-glance` directory under the user cache directory. Set
+`adsb.route_data_dir` to keep them elsewhere.

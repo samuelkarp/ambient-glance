@@ -32,6 +32,10 @@ type ADSBConfig struct {
 	Lat             string `json:"lat"`
 	Lon             string `json:"lon"`
 	Radius          string `json:"radius"`
+	// RouteDataDir is the directory for the downloaded route data files.
+	// It defaults to an ambient-glance directory under the user cache
+	// directory.
+	RouteDataDir string `json:"route_data_dir"`
 }
 
 type OBAConfig struct {
