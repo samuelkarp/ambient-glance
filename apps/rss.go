@@ -93,33 +93,31 @@ func (r *rssApp) Run(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	feeds := make(map[string]*rss.Feed)
-
-	for name, u := range r.urls {
-		feed, err := reader.Fetch(ctx, u)
-		if err != nil {
-			r.log.Printf("rss %s %v", u, err)
-			continue
-		}
-		feeds[name] = feed
-		r.processFeedItems(name, feed)
-	}
+	// nextUpdate holds the earliest time each feed may be fetched again.
+	// A feed with no entry is due.
+	nextUpdate := make(map[string]time.Time)
 
 	for {
+		for name, u := range r.urls {
+			if time.Now().Before(nextUpdate[name]) {
+				continue
+			}
+			// Reader.Update appends each new item to Feed.Items and
+			// does not remove any. Fetch returns a Feed with only the
+			// current items.
+			feed, err := reader.Fetch(ctx, u)
+			if err != nil {
+				r.log.Printf("rss %s %v", u, err)
+				continue
+			}
+			nextUpdate[name] = feed.NextUpdate
+			r.processFeedItems(name, feed)
+		}
+
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(1 * time.Minute):
-		}
-
-		for name, feed := range feeds {
-			if err := reader.Update(ctx, feed); err != nil {
-				if err != rss.ErrTooSoon {
-					r.log.Printf("rss update error %v", err)
-				}
-				continue
-			}
-			r.processFeedItems(name, feed)
 		}
 	}
 }
